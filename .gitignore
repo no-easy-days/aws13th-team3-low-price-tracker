@@ -353,9 +353,8 @@ $RECYCLE.BIN/
 *.cab
 *.msi
 *.msix
-*.msm
 *.msp
-
+*.msm
 # Windows shortcuts
 *.lnk
 
