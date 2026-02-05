@@ -5,8 +5,38 @@ from typing import Any, Dict, Optional, Tuple
 
 from sqlalchemy.orm import Session
 from sqlalchemy import func
-
+import models
 from models import Item, PriceHistory
+
+def remove_from_wishlist(db: Session, *, user_id: int, item_id: int) -> models.Wishlist:
+    w = (
+        db.query(models.Wishlist)
+        .filter(
+            models.Wishlist.user_id == user_id,
+            models.Wishlist.item_id == item_id,
+            models.Wishlist.is_active == 1,
+        )
+        .first()
+    )
+    if not w:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Wishlist item not found")
+
+    w.is_active = 0
+    db.commit()
+    db.refresh(w)
+    return w
+
+def hard_remove_from_wishlist(db: Session, *, user_id: int, item_id: int):
+    w = db.query(models.Wishlist).filter(
+        models.Wishlist.user_id == user_id,
+        models.Wishlist.item_id == item_id,
+    ).first()
+
+    if not w:
+        raise HTTPException(status_code=404, detail="Wishlist item not found")
+
+    db.delete(w)
+    db.commit()
 
 
 def upsert_item_from_naver(db: Session, data: Dict[str, Any]) -> Item:
@@ -73,3 +103,29 @@ def update_min_price_last_7d(db: Session, item: Item) -> None:
 
     if min_price is not None:
         item.min_price = int(min_price)
+# crud.py
+from sqlalchemy.exc import IntegrityError
+from fastapi import HTTPException, status
+from models import Wishlist, Item
+
+def add_to_wishlist(db, *, user_id: int, item_id: int) -> Wishlist:
+    item = db.query(Item).filter(Item.id == item_id).first()
+    if not item:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Item not found")
+
+    w = Wishlist(user_id=user_id, item_id=item_id, is_active=1)
+    db.add(w)
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        # 이미 있으면 기존 row 반환(혹은 그냥 409로 반환해도 됨)
+        existing = (
+            db.query(Wishlist)
+            .filter(Wishlist.user_id == user_id, Wishlist.item_id == item_id)
+            .first()
+        )
+        return existing
+
+    db.refresh(w)
+    return w

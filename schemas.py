@@ -117,3 +117,8 @@ class WishlistListResponse(BaseModel):
 
     # ORM Wishlist 리스트가 그대로 들어와도 파싱 가능
     wishlist_items: List[WishlistItemOut] = Field(..., description="아이템 목록")
+
+# schemas.py
+
+class WishlistCreate(BaseModel):
+    item_id: int
