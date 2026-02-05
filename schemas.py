@@ -49,8 +49,13 @@ class WishlistItem(BaseModel):
     category3: Optional[str] = Field(None, description="소분류")
     created_at: datetime = Field(..., description="등록 일시")
 
-# GET /products
-class ProductItem(BaseModel):
+class WishlistListResponse(BaseModel):
+    result_code: str = Field("SUCCESS", description="결과 코드")
+    total_count: int = Field(..., description="전체 아이템 수")
+    user_id: int = Field(..., description="유저 ID")
+    wishlist_items: List[WishlistItem] = Field(..., description="아이템 목록")
+
+class ProductItemOut(BaseModel):
     product_id: str = Field(..., description="네이버 상품 ID")
     title: str = Field(..., description="상품명")
     link: HttpUrl = Field(..., description="네이버 쇼핑 링크")
@@ -68,4 +73,4 @@ class ProductsGetResponse(BaseModel):
     total_count: int = Field(..., description="전체 상품 수")
     page: int = Field(..., description="현재 페이지")
     size: int = Field(..., description="페이지 당 개수")
-    items: List[ProductItem] = Field(..., description="상품 목록")
+    items: List[ProductItemOut] = Field(..., description="상품 목록")
