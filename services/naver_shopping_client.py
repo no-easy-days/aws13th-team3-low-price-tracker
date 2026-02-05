@@ -278,3 +278,4 @@ def refresh_product_price(
         f"Product not found in search results during refresh "
         f"(query={query}, product_url={product_url})"
     )
+
