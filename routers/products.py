@@ -2,9 +2,7 @@ from typing import List
 from fastapi import APIRouter, Query
 from schemas import ProductsGetResponse, ProductItem
 
-
 router = APIRouter(prefix="/products", tags=["products"])
-
 
 @router.get(
     "",
