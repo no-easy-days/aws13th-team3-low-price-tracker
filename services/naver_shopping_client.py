@@ -101,6 +101,8 @@ def normalize_naver_item(naver_item: Dict[str, Any]) -> Dict[str, Any]:
         raise DataCleaningError(f"link is missing/invalid: raw={raw_link!r}")
     product_url = raw_link.strip()
 
+    external_id = extract_external_id(product_url)
+
     # image_url / mall_name은 비어도 서비스 동작은 가능하니 빈 문자열 허용
     image_url = raw_image.strip() if isinstance(raw_image, str) else ""
     mall_name = raw_mall.strip() if isinstance(raw_mall, str) else ""
@@ -109,6 +111,7 @@ def normalize_naver_item(naver_item: Dict[str, Any]) -> Dict[str, Any]:
 
     # 표준 dict
     return {
+        "external_id": external_id,
         "title": title,
         "product_url": product_url,  # ERD의 items.product_url에 맞춰 key를 이렇게 둠
         "image_url": image_url,
@@ -213,3 +216,40 @@ def search_products(
             continue
 
     return normalized
+
+def refresh_product_price(
+    *,
+    query: str,
+    product_url: str,
+    timeout: float = 5.0,
+) -> int:
+    if not query:
+        raise ValueError("query is empty")
+    if not product_url:
+        raise ValueError("product_url is empty")
+
+    items = search_products(
+        query=query,
+        display=20,  # 검색 순위 변동 대비 여유 확보
+        strict=False,
+        timeout=timeout,
+    )
+
+    for item in items:
+        if item["product_url"] == product_url:
+            return item["price"]
+
+    raise NaverAPIError(
+        f"Product not found in search results during refresh "
+        f"(query={query}, product_url={product_url})"
+    )
+
+_ID_RE = re.compile(r"/(catalog|products)/(\d+)")
+
+def extract_external_id(product_url: str) -> str:
+    m = _ID_RE.search(product_url)
+    if not m:
+        raise DataCleaningError(
+            f"cannot extract external_id from url: {product_url!r}"
+        )
+    return m.group(2)
