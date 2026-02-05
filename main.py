@@ -8,11 +8,10 @@ from fastapi import FastAPI
 from apscheduler.schedulers.background import BackgroundScheduler
 
 from database import SessionLocal
-from services.shopping_service import refresh_wishlist_prices
-from services.naver_shopping_client import (
-    search_and_save_pages,
-    KEYBOARD_CATEGORY_ID,
-)
+from services.shopping_service import (
+     refresh_wishlist_prices,
+     collect_items_pages)
+from services.naver_shopping_client import KEYBOARD_CATEGORY_ID
 
 from routers.auth import router as auth_router
 from routers.shopping_alert import router as shopping_alert_router
@@ -21,21 +20,16 @@ from routers.wishlist_ref import router as wishlist_ref_router
 
 scheduler = BackgroundScheduler(timezone="Asia/Seoul")
 
-# ✅ 수집(아이템 채우기) 설정
+# 수집(아이템 채우기) 설정
 COLLECT_QUERY = os.getenv("COLLECT_QUERY", "기계식 키보드")
-COLLECT_TOTAL_PER_RUN = int(os.getenv("COLLECT_TOTAL_PER_RUN", "100"))  # ✅ 10분마다 목표 수집 개수
-COLLECT_PAGE_SIZE = int(os.getenv("COLLECT_PAGE_SIZE", "50"))          # ✅ 호출 1회당 display(1~100)
+COLLECT_TOTAL_PER_RUN = int(os.getenv("COLLECT_TOTAL_PER_RUN", "100"))  # 10분마다 목표 수집 개수
+COLLECT_PAGE_SIZE = int(os.getenv("COLLECT_PAGE_SIZE", "50"))          # 호출 1회당 display(1~100)
 
 
 def job_collect_items():
-    """
-    ✅ 10분마다 items를 계속 채우는 수집 배치:
-    - 키보드 카테고리만
-    - query로 여러 페이지를 돌려 total개까지 upsert + price_history 기록
-    """
     db = SessionLocal()
     try:
-        saved = search_and_save_pages(
+        saved = collect_items_pages(
             db,
             query=COLLECT_QUERY,
             category=KEYBOARD_CATEGORY_ID,
