@@ -2,10 +2,12 @@ from pydantic import BaseModel, Field, EmailStr, HttpUrl
 from typing import List, Optional
 from datetime import datetime
 
+# ==========================================
 # 1. 인증 (Auth) & 유저 (User)
+# ==========================================
 class TokenOut(BaseModel):
     access_token: str
-    refresh_token: Optional[str] = None # 토큰 쪽 중복 정의가 있어서 하나로 합침
+    refresh_token: Optional[str] = None
     token_type: str = "bearer"
     expires_in: int
 
@@ -21,7 +23,9 @@ class UserOut(BaseModel):
     class Config:
         from_attributes = True
 
+# ==========================================
 # 2. 위시리스트 (Wishlist)
+# ==========================================
 class WishlistItem(BaseModel):
     wishlist_id: int = Field(..., description="위시리스트 PK")
     product_id: str = Field(..., description="네이버 상품 ID")
@@ -42,7 +46,9 @@ class WishlistListResponse(BaseModel):
     user_id: int = Field(..., description="유저 ID")
     wishlist_items: List[WishlistItem] = Field(..., description="아이템 목록")
 
-# 3. [팀원 작업분] 상품 조회 (Common Product)
+# ==========================================
+# 3. [팀원 작업분] 상품 조회 (이름 변경: ProductItem -> ProductItemOut)
+# ==========================================
 class ProductItemOut(BaseModel):
     product_id: str = Field(..., description="네이버 상품 ID")
     title: str = Field(..., description="상품명")
@@ -60,9 +66,12 @@ class ProductsGetResponse(BaseModel):
     total_count: int = Field(..., description="전체 상품 수")
     page: int = Field(..., description="현재 페이지")
     size: int = Field(..., description="페이지 당 개수")
+    # 팀원 코드에서 여기를 ProductItem -> ProductItemOut으로 연결해줌
     items: List[ProductItemOut] = Field(..., description="상품 목록")
 
-# 4. [본인 작업분] 최저가 & 가격 업데이트
+# ==========================================
+# 4. [본인 작업분] 최저가 & 가격 업데이트 (ProductItem 유지)
+# ==========================================
 class ProductItem(BaseModel):
     product_id: str = Field(..., description="상품 ID")
     title: str = Field(..., description="상품명 (HTML 태그 포함)")
