@@ -72,7 +72,7 @@ async def lifespan(app: FastAPI):
     scheduler.add_job(
         job_collect_items,
         "interval",
-        minutes=10,
+        minutes=1,
         id="item_collect",
         replace_existing=True,
     )
@@ -100,4 +100,6 @@ app = FastAPI(lifespan=lifespan)
 app.include_router(auth_router)
 app.include_router(shopping_alert_router)
 app.include_router(wishlist_ref_router)
+app.include_router(alerts_router)
+
 app.include_router(products_router)

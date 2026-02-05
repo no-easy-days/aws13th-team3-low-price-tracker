@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import List, Optional
+from typing import List, Optional, Literal
 
 from pydantic import BaseModel, EmailStr, Field, HttpUrl, ConfigDict
 
@@ -117,3 +117,27 @@ class WishlistListResponse(BaseModel):
 
     # ORM Wishlist 리스트가 그대로 들어와도 파싱 가능
     wishlist_items: List[WishlistItemOut] = Field(..., description="아이템 목록")
+
+# 알람
+AlertType = Literal["TARGET_PRICE", "DROP_FROM_PREV", "NEW_LOW"]
+
+class AlertCreate(BaseModel):
+    wishlist_id: int = Field(..., description="wishlist PK")
+    alert_type: AlertType = Field(..., description="알림 타입")
+    target_price: Optional[int] = Field(None, description="TARGET_PRICE일 때 목표가")
+
+class AlertOut(BaseModel):
+    id: int
+    wishlist_id: int
+    alert_type: str
+    target_price: Optional[int]
+    is_enabled: int
+    last_triggered_ph_id: Optional[int]
+    last_triggered_at: Optional[datetime]
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+class AlertToggle(BaseModel):
+    is_enabled: int = Field(..., description="1=enabled, 0=disabled")
