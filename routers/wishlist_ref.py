@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 import models
 import schemas
 from database import get_db
-from routers.auth import get_current_user  # ✅ 이미 auth.py에 있음
+from routers.auth import get_current_user
 from crud import add_to_wishlist, remove_from_wishlist, hard_remove_from_wishlist
 
 router = APIRouter(prefix="/wishlist", tags=["wishlist"])
@@ -16,7 +16,7 @@ async def get_wishlist(
     start: int = Query(1, le=1000),
     sort: str = Query("date", pattern="^(sim|date|asc|dsc)$"),
     db: Session = Depends(get_db),
-    current_user: models.User = Depends(get_current_user),  # ✅ 로그인 유저
+    current_user: models.User = Depends(get_current_user),  # 로그인 유저
 ):
     user_id = current_user.id
     query = db.query(models.Wishlist).filter(models.Wishlist.user_id == user_id, models.Wishlist.is_active == 1)
