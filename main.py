@@ -17,7 +17,7 @@ from services.naver_shopping_client import (
 from routers.auth import router as auth_router
 from routers.shopping_alert import router as shopping_alert_router
 from routers.wishlist_ref import router as wishlist_ref_router
-
+from routers.products import router as products_router
 
 scheduler = BackgroundScheduler(timezone="Asia/Seoul")
 
@@ -106,3 +106,4 @@ app = FastAPI(lifespan=lifespan)
 app.include_router(auth_router)
 app.include_router(shopping_alert_router)
 app.include_router(wishlist_ref_router)
+app.include_router(products_router)
