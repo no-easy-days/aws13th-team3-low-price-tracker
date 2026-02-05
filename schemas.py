@@ -47,9 +47,10 @@ class WishlistListResponse(BaseModel):
     wishlist_items: List[WishlistItem] = Field(..., description="아이템 목록")
 
 # ==========================================
-# 3. [팀원 작업분] 상품 조회 (이름 변경: ProductItem -> ProductItemOut)
+# 3. [팀원 작업분 보존] 상품 조회 (ProductItem 유지)
 # ==========================================
-class ProductItemOut(BaseModel):
+# 팀원이 만든 코드는 건드리지 않습니다.
+class ProductItem(BaseModel):
     product_id: str = Field(..., description="네이버 상품 ID")
     title: str = Field(..., description="상품명")
     link: HttpUrl = Field(..., description="네이버 쇼핑 링크")
@@ -66,13 +67,13 @@ class ProductsGetResponse(BaseModel):
     total_count: int = Field(..., description="전체 상품 수")
     page: int = Field(..., description="현재 페이지")
     size: int = Field(..., description="페이지 당 개수")
-    # 팀원 코드에서 여기를 ProductItem -> ProductItemOut으로 연결해줌
-    items: List[ProductItemOut] = Field(..., description="상품 목록")
+    items: List[ProductItem] = Field(..., description="상품 목록")
 
 # ==========================================
-# 4. [본인 작업분] 최저가 & 가격 업데이트 (ProductItem 유지)
+# 4. [본인 작업분 수정] 최저가 조회 (이름 변경: ProductItem -> SearchProductItem)
 # ==========================================
-class ProductItem(BaseModel):
+# 이름이 겹치지 않게 'Search'를 붙여서 내 코드를 수정합니다.
+class SearchProductItem(BaseModel):
     product_id: str = Field(..., description="상품 ID")
     title: str = Field(..., description="상품명 (HTML 태그 포함)")
     link: str = Field(..., description="쇼핑몰 링크")
@@ -89,7 +90,8 @@ class ProductSearchResponse(BaseModel):
     search_keyword: str = Field(..., description="검색 키워드")
     result_code: str = Field("SUCCESS", description="결과 코드")
     total_count: int = Field(..., description="전체 검색 결과 수")
-    items: List[ProductItem] = Field(..., description="상품 목록")
+    # 여기도 변경된 이름(SearchProductItem)을 쓰도록 수정했습니다.
+    items: List[SearchProductItem] = Field(..., description="상품 목록")
 
 # 가격 업데이트 관련
 class PriceUpdateRequest(BaseModel):
