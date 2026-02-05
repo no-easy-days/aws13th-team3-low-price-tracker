@@ -72,7 +72,7 @@ async def lifespan(app: FastAPI):
     scheduler.add_job(
         job_collect_items,
         "interval",
-        minutes=10,
+        minutes=1,
         id="item_collect",
         replace_existing=True,
     )

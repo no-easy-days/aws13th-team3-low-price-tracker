@@ -36,11 +36,13 @@ def clean_title(raw_title: Any) -> str:
         raise DataCleaningError("title is None")
     if not isinstance(raw_title, str):
         raise DataCleaningError(f"title is not a string: type={type(raw_title)} value={raw_title!r}")
+
     s = unescape(raw_title)
     s = _HTML_TAG_RE.sub("", s).strip()
     if not s:
         raise DataCleaningError(f"title is empty after cleaning: raw={raw_title!r}")
     return s
+
 
 def parse_price_to_int(raw_price: Any, *, field_name: str = "lprice") -> int:
     if raw_price is None:
