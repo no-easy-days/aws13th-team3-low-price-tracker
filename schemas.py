@@ -23,3 +23,48 @@ class WishlistListResponse(BaseModel):
     total_count: int = Field(..., description="전체 아이템 수")
     user_id: int = Field(..., description="유저 ID")
     wishlist_items: List[WishlistItem] = Field(..., description="아이템 목록")
+
+
+# 최저가 상품 조회
+class ProductItem(BaseModel):
+    product_id: str = Field(..., description="상품 ID")
+    title: str = Field(..., description="상품명 (HTML 태그 포함)")
+    link: str = Field(..., description="쇼핑몰 링크")
+    lprice: int = Field(..., description="최저가")
+    mall_name: str = Field(..., description="판매 쇼핑몰 이름")
+    brand: Optional[str] = Field(None, description="브랜드")
+    maker: Optional[str] = Field(None, description="제조사")
+    category1: Optional[str] = Field(None, description="대분류")
+    category2: Optional[str] = Field(None, description="중분류")
+    category3: Optional[str] = Field(None, description="소분류")
+    category4: Optional[str] = Field(None, description="세분류")
+
+class ProductSearchResponse(BaseModel):
+    search_keyword: str = Field(..., description="검색 키워드")
+    result_code: str = Field("SUCCESS", description="결과 코드")
+    total_count: int = Field(..., description="전체 검색 결과 수")
+    items: List[ProductItem] = Field(..., description="상품 목록")
+
+
+# 상품 가격 업데이트
+from pydantic import BaseModel, Field
+from datetime import datetime
+from typing import Optional
+
+class PriceUpdateRequest(BaseModel):
+    item_id: int = Field(..., description="갱신할 상품의 고유 식별자 (BigInteger)")
+    price: int = Field(..., description="새로운 가격")
+
+class PriceUpdateData(BaseModel):
+    product_id: str = Field(..., description="상품 ID")
+    title: str = Field(..., description="상품명")
+    new_price: int = Field(..., description="갱신된 가격")
+    old_price: int = Field(..., description="이전 가격")
+    diff_amount: int = Field(..., description="가격 차이 (새 가격 - 옛 가격)")
+    diff_rate: float = Field(..., description="할인율/변동률 (%)")
+    updated_at: datetime = Field(..., description="업데이트 일시")
+
+class PriceUpdateResponse(BaseModel):
+    result_code: str = Field("SUCCESS", description="결과 코드")
+    message: str = Field(..., description="메시지")
+    data: PriceUpdateData
