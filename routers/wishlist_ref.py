@@ -1,15 +1,15 @@
-from fastapi import APIRouter, Depends, Query
+# routers/wishlist_ref.py
+from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.orm import Session
 from datetime import datetime  # datetime 에러 방지용 import
 from database import get_db
 import models
 import schemas
+from database import get_db
+from routers.auth import get_current_user
+from crud import add_to_wishlist, remove_from_wishlist, hard_remove_from_wishlist
 
-router = APIRouter(
-    prefix="/wishlist",
-    tags=["wishlist"]
-)
-
+router = APIRouter(prefix="/wishlist", tags=["wishlist"])
 
 @router.get("", response_model=schemas.WishlistListResponse)
 async def get_wishlist(
