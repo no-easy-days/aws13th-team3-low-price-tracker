@@ -7,7 +7,7 @@ import models
 import schemas
 from database import get_db
 from routers.auth import get_current_user
-from crud import add_to_wishlist, remove_from_wishlist, hard_remove_from_wishlist
+from crud import add_to_wishlist, remove_from_wishlist
 
 router = APIRouter(prefix="/wishlist", tags=["wishlist"])
 
@@ -74,3 +74,20 @@ async def get_wishlist(
         user_id=user_id,
         wishlist_items=wishlist_items
     )
+
+@router.post("", response_model=schemas.WishlistItemOut)
+def create_wishlist(
+    payload: schemas.WishlistCreate,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    w = add_to_wishlist(db, user_id=current_user.id, item_id=payload.item_id)
+    # item 같이 내려주고 싶으면 relationship 로딩 필요할 수도 있음(지금은 OK일 가능성 높음)
+    return w
+
+@router.delete("/{item_id}", status_code=204)
+def delete_wishlist(item_id: int,
+                    db: Session = Depends(get_db),
+                    current_user: models.User = Depends(get_current_user)):
+    hard_remove_from_wishlist(db, user_id=current_user.id, item_id=item_id)
+    return

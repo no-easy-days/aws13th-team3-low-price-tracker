@@ -118,6 +118,9 @@ class WishlistListResponse(BaseModel):
     # ORM Wishlist 리스트가 그대로 들어와도 파싱 가능
     wishlist_items: List[WishlistItemOut] = Field(..., description="아이템 목록")
 
+class WishlistCreate(BaseModel):
+    item_id: int
+
 # 알람
 AlertType = Literal["TARGET_PRICE", "DROP_FROM_PREV", "NEW_LOW"]
 
