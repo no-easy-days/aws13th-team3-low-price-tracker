@@ -26,19 +26,36 @@ def remove_from_wishlist(db: Session, *, user_id: int, item_id: int) -> models.W
     db.refresh(w)
     return w
 
-def upsert_item_from_naver(db: Session, data: Dict[str, Any]) -> Item:
+def hard_remove_from_wishlist(db: Session, *, user_id: int, item_id: int):
+    w = db.query(models.Wishlist).filter(
+        models.Wishlist.user_id == user_id,
+        models.Wishlist.item_id == item_id,
+    ).first()
+
+    if not w:
+        raise HTTPException(status_code=404, detail="Wishlist item not found")
+
+    db.delete(w)
+    db.commit()
+
+
+# crud.py
+
+# 리턴 타입 변경: Item -> Tuple[Item, bool]
+def upsert_item_from_naver(db: Session, data: Dict[str, Any]) -> Tuple[Item, bool]:
     """
     normalized naver item(dict)을 items 테이블에 upsert.
-    external_id 기준.
+    Return: (Item 객체, 새로 생성되었는지 여부 T/F)
     """
-    now = datetime.now(timezone.utc).replace(tzinfo=None)  # MySQL DATETIME용 naive로 통일(권장)
-
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
     external_id = data["external_id"]
     price = int(data["price"])
 
     item = db.query(Item).filter(Item.external_id == external_id).first()
+    is_created = False  # 플래그 추가
 
     if item is None:
+        is_created = True
         item = Item(
             external_id=external_id,
             title=data["title"],
@@ -46,22 +63,24 @@ def upsert_item_from_naver(db: Session, data: Dict[str, Any]) -> Item:
             product_url=data["product_url"],
             mall_name=data.get("mall_name") or None,
             initial_price=price,
-            last_seen_price=price,
-            min_price=price,              # 일단 최초값, 이후 최근7일 로직에서 갱신
+            last_seen_price=price, # 신규 생성일 때는 가격 설정 필수
+            min_price=price,
             last_checked_at=now,
-            is_active=True,
+            is_active=1,  # True -> 1 (MySQL Tinyint)
         )
         db.add(item)
-        db.flush()  # item.id 확보
+        db.flush()
     else:
+        # ✅ [수정됨] 기존 아이템이면 '가격'과 '확인시간'은 건드리지 않음!
+        # (서비스 레이어에서 비교 후 업데이트 할 것임)
         item.title = data["title"]
         item.image_url = data.get("image_url") or None
         item.product_url = data["product_url"]
         item.mall_name = data.get("mall_name") or None
-        item.last_seen_price = price
-        item.last_checked_at = now
+        # item.last_seen_price = price  <-- 삭제 (중요)
+        # item.last_checked_at = now    <-- 삭제 (중요)
 
-    return item
+    return item, is_created
 
 
 def insert_price_history(db: Session, item_id: int, price: int) -> PriceHistory:
