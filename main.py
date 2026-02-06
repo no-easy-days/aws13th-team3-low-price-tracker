@@ -17,6 +17,7 @@ from routers.auth import router as auth_router
 from routers.shopping_alert import router as shopping_alert_router
 from routers.wishlist_ref import router as wishlist_ref_router
 from routers.products import router as products_router
+from routers.alerts import router as alerts_router
 
 scheduler = BackgroundScheduler(timezone="Asia/Seoul")
 
