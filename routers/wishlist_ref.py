@@ -26,7 +26,7 @@ async def get_wishlist(
     # models.Wishlist.lprice는 존재하지 않으므로, models.Item.last_seen_price를 사용해야 합니다.
     if sort == "date":
         # 최신순 (위시리스트 담은 날짜 기준)
-        query = query.order_by(models.Wishli/t.created_at.desc())
+        query = query.order_by(models.Wishlist.created_at.desc())
     elif sort == "asc":
         # 가격 낮은 순 (아이템의 최근 가격 기준)
         query = query.order_by(models.Item.last_seen_price.asc())
