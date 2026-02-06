@@ -5,37 +5,88 @@ from datetime import datetime, timezone
 
 from sqlalchemy.orm import Session
 
+# crud에서 수정된 함수들 import
 from crud import (
     upsert_item_from_naver,
     insert_price_history,
     update_min_price_last_7d,
 )
-from services.naver_shopping_client import refresh_product_price, search_products
+from services.naver_shopping_client import refresh_product_price, search_products, KEYBOARD_CATEGORY_ID
 from services.alert_service import evaluate_alerts_for_price_update
-from models import Wishlist, Item
+from models import Wishlist, Item, PriceHistory
 
 
 def _now_naive_utc() -> datetime:
     return datetime.now(timezone.utc).replace(tzinfo=None)
 
-KEYBOARD_CATEGORY_ID = "50000151"
+
+# ---------------------------------------------------------
+# 🛠️ [핵심] 가격 변동 처리 공통 로직
+# ---------------------------------------------------------
+def _process_price_update(db: Session, item: Item, new_price: int, is_created: bool):
+    """
+    아이템의 가격 변동을 감지하고, 변동이 있을 때만:
+    1. PriceHistory 저장
+    2. Item의 last_seen_price, min_price 갱신
+    3. 알림(Alert) 트리거 체크
+    """
+    # 1. 신규 상품이면? -> 이미 crud에서 가격을 넣었으니 히스토리만 쌓고 끝냄
+    if is_created:
+        insert_price_history(db, item.id, new_price)
+        return
+
+    # 2. 기존 상품 -> 가격 비교 (이제 crud가 가격을 안 건드렸으니 비교 가능!)
+    old_last_seen_price = item.last_seen_price
+    old_min_price = item.min_price
+
+    # 변동 없음: 시간만 갱신하고 종료
+    if old_last_seen_price is not None and int(old_last_seen_price) == new_price:
+        item.last_checked_at = _now_naive_utc()
+        return
+
+        # 3. 변동 발생: 히스토리 기록 & 아이템 업데이트
+    ph = insert_price_history(db, item.id, new_price)
+
+    item.last_seen_price = new_price
+    item.last_checked_at = _now_naive_utc()
+
+    # 4. 최저가 갱신 로직
+    if old_min_price is None or new_price < int(old_min_price):
+        item.min_price = new_price
+    else:
+        update_min_price_last_7d(db, item)
+
+    # 5. 알림 체크 (가격 변동 시에만)
+    wishlists = (
+        db.query(Wishlist)
+        .filter(Wishlist.item_id == item.id)
+        .filter(Wishlist.is_active == 1)
+        .all()
+    )
+    for w in wishlists:
+        evaluate_alerts_for_price_update(
+            db,
+            wishlist_id=w.id,
+            new_ph=ph,
+            old_last_seen_price=old_last_seen_price,
+            old_min_price=old_min_price,
+        )
+
 
 def collect_items_pages(
-    db: Session,
-    *,
-    query: str,
-    category: str | None = None,
-    total: int = 100,
-    page_size: int = 50,
-    sort: str = "sim",
-    strict: bool = False,
+        db: Session,
+        *,
+        query: str,
+        category: str | None = None,
+        total: int = 100,
+        page_size: int = 50,
+        sort: str = "sim",
+        strict: bool = False,
 ) -> int:
     """
     ✅ 배치 수집용(Items 채우기)
     - 네이버 쇼핑 검색을 페이지(start)로 돌려서 total개까지 수집/저장(upsert)한다.
-    - 가격이 바뀐 경우에만 price_history 기록 (같은 가격이면 스킵)
-    - min_price(최근 7일 최저가) 갱신
-    - 해당 item을 참조하는 wishlist가 있으면 알람 판별까지 수행(실제 전송 X)
+    - _process_price_update를 통해 가격 변동 및 알림 처리 위임
     """
     if category is None:
         category = KEYBOARD_CATEGORY_ID
@@ -64,34 +115,11 @@ def collect_items_pages(
             break
 
         for data in items:
-            # upsert 수행 (Item 생성/갱신)
-            item = upsert_item_from_naver(db, data)
+            # ✅ 수정된 crud 호출 (tuple 반환 대응)
+            item, is_created = upsert_item_from_naver(db, data)
 
-            old_last_seen_price: Optional[int] = item.last_seen_price
-            old_min_price: Optional[int] = item.min_price
-            new_price = int(data["price"])
-
-            # ✅ 가격이 변동된 경우에만 history 기록
-            if old_last_seen_price is None or new_price != int(old_last_seen_price):
-                ph = insert_price_history(db, item.id, new_price)
-                update_min_price_last_7d(db, item)
-
-                # ✅ 이 item을 참조하는 wishlist가 있으면 알람 판별
-                wishlists = (
-                    db.query(Wishlist)
-                    .filter(Wishlist.item_id == item.id)
-                    .filter(Wishlist.is_active == True)
-                    .all()
-                )
-
-                for w in wishlists:
-                    evaluate_alerts_for_price_update(
-                        db,
-                        wishlist_id=w.id,
-                        new_ph=ph,
-                        old_last_seen_price=old_last_seen_price,
-                        old_min_price=old_min_price,
-                    )
+            # 로직 위임
+            _process_price_update(db, item, int(data["price"]), is_created)
 
         db.commit()
 
@@ -99,6 +127,8 @@ def collect_items_pages(
         start += display  # 다음 페이지로 이동 (1-base)
 
     return saved_total
+
+
 def save_naver_search_results(db: Session, items: List[Dict[str, Any]]) -> List[int]:
     """
     네이버 검색 결과(normalized list)를 DB에 저장/갱신하고,
@@ -107,36 +137,11 @@ def save_naver_search_results(db: Session, items: List[Dict[str, Any]]) -> List[
     saved_ids: List[int] = []
 
     for data in items:
-        # 기존 item 여부 확인
-        item = upsert_item_from_naver(db, data)
+        # ✅ 수정된 crud 호출 (tuple 반환 대응)
+        item, is_created = upsert_item_from_naver(db, data)
 
-        # 가격 변동 여부 판단
-        old_last_seen_price: Optional[int] = item.last_seen_price
-        old_min_price: Optional[int] = item.min_price
-
-        # price_history는 "가격이 변했을 때만" 기록
-        if old_last_seen_price is None or int(data["price"]) != int(old_last_seen_price):
-            ph = insert_price_history(db, item.id, int(data["price"]))
-
-            # min_price 갱신
-            update_min_price_last_7d(db, item)
-
-            # wishlist 기반 알람 트리거 판별
-            wishlists = (
-                db.query(Wishlist)
-                .filter(Wishlist.item_id == item.id)
-                .filter(Wishlist.is_active == True)
-                .all()
-            )
-
-            for w in wishlists:
-                evaluate_alerts_for_price_update(
-                    db,
-                    wishlist_id=w.id,
-                    new_ph=ph,
-                    old_last_seen_price=old_last_seen_price,
-                    old_min_price=old_min_price,
-                )
+        # 로직 위임
+        _process_price_update(db, item, int(data["price"]), is_created)
 
         saved_ids.append(item.id)
 
@@ -154,56 +159,30 @@ def refresh_wishlist_prices(db: Session) -> int:
     rows = (
         db.query(Item)
         .join(Wishlist, Wishlist.item_id == Item.id)
-        .filter(Wishlist.is_active == True)
-        .filter(Item.is_active == True)
+        .filter(Wishlist.is_active == 1)
+        .filter(Item.is_active == 1)
         .all()
     )
 
-    updated = 0
+    updated_count = 0
 
     for item in rows:
-        # 갱신 전 상태 저장
-        old_last_seen_price: Optional[int] = item.last_seen_price
-        old_min_price: Optional[int] = item.min_price
-
-        # 네이버 API로 최신 가격 조회
-        new_price = refresh_product_price(
-            query=item.title,
-            product_url=item.product_url,
-        )
-
-        # 가격이 안 바뀌면 skip (history도 안 쌓음)
-        if old_last_seen_price is not None and int(new_price) == int(old_last_seen_price):
-            continue
-
-        # 최신 가격 반영
-        item.last_seen_price = int(new_price)
-        item.last_checked_at = _now_naive_utc()
-
-        # price_history 기록
-        ph = insert_price_history(db, item.id, int(new_price))
-
-        # min_price 갱신
-        update_min_price_last_7d(db, item)
-
-        # 이 item을 참조하는 wishlist 기준으로 알람 판별
-        wishlists = (
-            db.query(Wishlist)
-            .filter(Wishlist.item_id == item.id)
-            .filter(Wishlist.is_active == True)
-            .all()
-        )
-
-        for w in wishlists:
-            evaluate_alerts_for_price_update(
-                db,
-                wishlist_id=w.id,
-                new_ph=ph,
-                old_last_seen_price=old_last_seen_price,
-                old_min_price=old_min_price,
+        try:
+            # 네이버 API로 최신 가격 조회
+            new_price = refresh_product_price(
+                query=item.title,
+                product_url=item.product_url,
             )
 
-        updated += 1
+            # 기존 상품이므로 is_created=False
+            _process_price_update(db, item, int(new_price), is_created=False)
+
+            updated_count += 1
+
+        except Exception as e:
+            # 특정 상품 갱신 실패해도 다른 상품은 계속 진행
+            print(f"Failed to refresh item {item.id}: {e}")
+            continue
 
     db.commit()
-    return updated
+    return updated_count
