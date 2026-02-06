@@ -55,9 +55,15 @@ def evaluate_alerts_for_price_update(
     if not alerts:
         return 0
 
-    # wishlist -> item
-    wishlist = db.query(Wishlist).filter(Wishlist.id == wishlist_id).first()
+    # wishlist -> item + 비활성화 상태인 리스트 알람 해제
+    wishlist = (
+        db.query(Wishlist)
+        .filter(Wishlist.id == wishlist_id)
+        .filter(Wishlist.is_active == 1)
+        .first()
+    )
     if not wishlist:
+        # 비활성 wishlist는 알람 대상 아님
         return 0
 
     item = db.query(Item).filter(Item.id == wishlist.item_id).first()
@@ -96,4 +102,13 @@ def evaluate_alerts_for_price_update(
             a.last_triggered_at = _now_naive_utc()
             triggered += 1
 
+            print(
+                "[알림 왔숑]/n",
+                f"wishlist_id={a.wishlist_id}",
+                f"alert_type={a.alert_type}",
+                f"current_price={current_price}",
+                f"target_price={a.target_price}",
+                f"price_history_id={new_ph.id}",
+                f"triggered_at={a.last_triggered_at}",
+            )
     return triggered
