@@ -26,19 +26,6 @@ def remove_from_wishlist(db: Session, *, user_id: int, item_id: int) -> models.W
     db.refresh(w)
     return w
 
-def hard_remove_from_wishlist(db: Session, *, user_id: int, item_id: int):
-    w = db.query(models.Wishlist).filter(
-        models.Wishlist.user_id == user_id,
-        models.Wishlist.item_id == item_id,
-    ).first()
-
-    if not w:
-        raise HTTPException(status_code=404, detail="Wishlist item not found")
-
-    db.delete(w)
-    db.commit()
-
-
 def upsert_item_from_naver(db: Session, data: Dict[str, Any]) -> Item:
     """
     normalized naver item(dict)을 items 테이블에 upsert.
