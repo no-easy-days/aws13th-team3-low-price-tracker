@@ -39,7 +39,7 @@ def job_collect_items():
             sort="sim",
             strict=False,
         )
-        print(f"[collector] collected {saved} items (query={COLLECT_QUERY!r}
+        print(f"[collector] collected {saved} items (query={COLLECT_QUERY!r})")
     except Exception as e:
         print("[collector] error:", repr(e))
     finally:
