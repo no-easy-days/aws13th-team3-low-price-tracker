@@ -18,6 +18,7 @@ from routers.shopping_alert import router as shopping_alert_router
 from routers.wishlist_ref import router as wishlist_ref_router
 from routers.products import router as products_router
 from routers.alerts import router as alerts_router
+from routers.demo import router as demo_router
 
 scheduler = BackgroundScheduler(timezone="Asia/Seoul")
 
@@ -102,5 +103,5 @@ app.include_router(auth_router)
 app.include_router(shopping_alert_router)
 app.include_router(wishlist_ref_router)
 app.include_router(alerts_router)
-
 app.include_router(products_router)
+app.include_router(demo_router)
